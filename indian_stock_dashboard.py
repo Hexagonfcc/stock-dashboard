@@ -1,45 +1,36 @@
 import streamlit as st
+import yfinance as yf
 import pandas as pd
-import requests
-from bs4 import BeautifulSoup
-import time
 
-# App title
-st.header('Indian Stock Dashboard')
+st.set_page_config(page_title="Indian Stock Dashboard", layout="wide")
 
-# User input from sidebar
-ticker = st.sidebar.text_input('Symbol Code', 'INFY')
-exchange = st.sidebar.text_input('Exchange', 'NSE')
+st.title("📈 Indian Stock Dashboard")
 
-# URL for scraping Google Finance
-url = f'https://www.google.com/finance/quote/{ticker}:{exchange}'
+# Input
+stock_symbol = st.text_input("Enter Stock Symbol (e.g., RELIANCE.NS, TCS.NS, INFY.NS):", "RELIANCE.NS")
 
-# Send request and parse HTML
-response = requests.get(url)
-soup = BeautifulSoup(response.text, 'html.parser')
+if stock_symbol:
+    try:
+        stock = yf.Ticker(stock_symbol)
+        stock_info = stock.info
 
-# Extract data
-try:
-    price = float(soup.find(class_='YMlKec fxKbKc').text.strip()[1:].replace(",", ""))
-    previous_close = float(soup.find(class_='P6K39c').text.strip()[1:].replace(",", ""))
-    revenue = soup.find(class_='QXDmN').text
-    news = soup.find(class_='Yfwt5').text
-    about = soup.find(class_='bLLb2d').text
-except Exception as e:
-    st.error(f"Error extracting data: {e}")
-    st.stop()
+        st.subheader(f"{stock_info['longName']} ({stock_info['symbol']})")
 
-# Store in dictionary
-dict1 = {
-    'Price': price,
-    'Previous Price': previous_close,
-    'Revenue': revenue,
-    'News': news,
-    'About': about
-}
+        # Stock details
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Current Price", f"₹{stock_info['currentPrice']}")
+        col2.metric("Market Cap", f"₹{stock_info['marketCap']:,}")
+        col3.metric("52W High / Low", f"₹{stock_info['fiftyTwoWeekHigh']} / ₹{stock_info['fiftyTwoWeekLow']}")
 
-# Convert to DataFrame
-df = pd.DataFrame(dict1, index=['Extracted Data']).T
+        # Chart
+        hist = stock.history(period="6mo")
+        st.line_chart(hist['Close'])
 
-# Display the data
-st.write(df)
+        # Table
+        st.subheader("Recent Data")
+        st.dataframe(hist.tail(10))
+
+    except Exception as e:
+        st.error(f"⚠️ Failed to fetch data. Error: {e}")
+else:
+    st.info("Enter a valid NSE stock symbol to get started.")
